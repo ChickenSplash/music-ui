@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import { Layout } from './components/Layout'
 import { ErrorNote } from './components/ui'
+import { goToSignIn, TERMS_URL } from './lib/accounts'
 import { useMe } from './lib/auth'
 import { PlayerProvider } from './lib/player'
 import { Album } from './pages/Album'
@@ -11,13 +13,11 @@ import { Liked } from './pages/Liked'
 import { Playlist } from './pages/Playlist'
 import { Search } from './pages/Search'
 import { Studio } from './pages/Studio'
-import { Terms } from './pages/Terms'
-import { Welcome } from './pages/Welcome'
 
 export default function App() {
   return (
     <Routes>
-      <Route path="terms" element={<Terms />} />
+      <Route path="terms" element={<Away to={TERMS_URL} />} />
       <Route path="*" element={<Main />} />
     </Routes>
   )
@@ -38,7 +38,7 @@ function Main() {
 
   const user = me.data
 
-  if (!user) return <Welcome />
+  if (!user) return <SignIn />
 
   // Keyed by user, so logging out and in as someone else never keeps the last person's queue.
   return (
@@ -58,4 +58,16 @@ function Main() {
       </Routes>
     </PlayerProvider>
   )
+}
+
+/** Signed out: off to the shared sign-in site, which sends you back to this same page. */
+function SignIn() {
+  useEffect(() => goToSignIn(), [])
+  return null
+}
+
+/** The terms live on the sign-in site now; old links still land there. */
+function Away({ to }: { to: string }) {
+  useEffect(() => window.location.replace(to), [to])
+  return null
 }

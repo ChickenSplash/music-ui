@@ -24,9 +24,16 @@ Everything is same-origin: nginx (or the Vite dev server) forwards `/api/` and `
 `X-Accel-Redirect: /_music/<path>`, an internal location serving the music folder (mounted
 read-only at `/music`, the same folder HMS reads). So the container needs `MUSIC_PATH` too.
 
+There's no sign-in screen here. Accounts live on HMS's shared sign-in site
+(`https://chickensplash.dpdns.org`, `VITE_ACCOUNTS_URL` at build time, `src/lib/accounts.ts`):
+signed out, the app sends you to its `/login?return=<this page>`, and you come back signed in
+to every app at once. Logging out here logs you out everywhere and lands on that site. The
+terms page is there too (`/terms` here redirects). nginx expires the per-host cookies HMS set
+before the switch, which would otherwise break every write with a 419.
+
 ## Screens
 
-- **Welcome:** join as a guest, log in or register (the same accounts as chat)
+- **Signing in:** on the shared sign-in site, the same accounts as chat (see below)
 - **Layout:** top bar (home, search, Studio, account menu), Your Library on the left (Liked
   Songs, playlists, +), the page, an optional right panel (now playing with lyrics, or the
   queue) and the player bar. Both sidebars resize by dragging their edge (or arrow keys on the
@@ -52,11 +59,11 @@ itself:
 
 ```bash
 npm install
-npm run dev   # proxies to localhost:8000; override with HMS_URL
+VITE_ACCOUNTS_URL=http://localhost:8000 npm run dev   # proxies to localhost:8000; override with HMS_URL
 ```
 
-Or the whole thing in Docker (`dev/docker-compose.yml`, expects the HMS repo next to this one),
-on `http://localhost:8090`:
+Or the whole thing in Docker (`dev/docker-compose.yml`, expects the HMS repo next to this one):
+the app on `http://localhost:8090`, the sign-in site on `http://localhost:8091`:
 
 ```bash
 mkdir -p ~/scratch/music-dev
@@ -76,7 +83,7 @@ docker compose up -d --build
 
 The container joins the external `edge` network and mounts `MUSIC_PATH` (default
 `/srv/files/Music`); point the tunnel's public hostname at `http://music-ui:80`. The hostname
-must be in HMS's `SANCTUM_STATEFUL_DOMAINS`.
+must be in HMS's `SANCTUM_STATEFUL_DOMAINS`, and its URL in HMS's `MUSIC_URL`.
 
 ## End-to-end tests
 

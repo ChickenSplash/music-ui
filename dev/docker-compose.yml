@@ -1,6 +1,7 @@
-# A local copy of HMS and music-ui for development and the Playwright tests, on
-# http://localhost:8090. Expects the HMS repo next to this one. Plain HTTP, so cookies
-# aren't Secure, and no scheduler: use "Scan now" in the studio after adding files.
+# A local copy of HMS and music-ui for development and the Playwright tests: the app on
+# http://localhost:8090, its sign-in site (HMS) on http://localhost:8091. Cookies ignore the
+# port, so the two share the session. Expects the HMS repo next to this one. Plain HTTP, so
+# cookies aren't Secure, and no scheduler: use "Scan now" in the studio after adding files.
 #
 #   MUSIC_PATH=~/scratch/music-dev docker compose -f dev/docker-compose.yml up -d --build
 name: music-dev
@@ -23,16 +24,24 @@ services:
       QUEUE_CONNECTION: sync
       BROADCAST_CONNECTION: 'null'
       SANCTUM_STATEFUL_DOMAINS: localhost:8090
+      ACCOUNTS_URL: http://localhost:8091
+      CHAT_URL: ''
+      MUSIC_URL: http://localhost:8090
       MUSIC_ROOT: /music
       MUSIC_COVERS: /app/data/music-covers
       MUSIC_ACCEL_PREFIX: /_music/
       LOG_CHANNEL: stderr
+    ports:
+      - '127.0.0.1:8091:3000'
     volumes:
       - database:/app/data
       - '${MUSIC_PATH:?set MUSIC_PATH to a folder of <public_id>/*.mp3}:/music:ro'
 
   music-ui:
-    build: ..
+    build:
+      context: ..
+      args:
+        VITE_ACCOUNTS_URL: http://localhost:8091
     image: music-ui:dev
     ports:
       - '127.0.0.1:8090:80'

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router'
+import { TERMS_URL } from '../lib/accounts'
 import { useSignOut, type User } from '../lib/auth'
 import { plural } from '../lib/format'
 import { useCreatePlaylist, useLikes, usePlaylists } from '../lib/music'
@@ -226,7 +227,7 @@ function TopBar({ user, onSettings }: { user: User; onSettings: () => void }) {
               </MenuItem>
             </>
           )}
-          <MenuItem icon="info" onClick={() => (setMenu(null), navigate('/terms'))}>
+          <MenuItem icon="info" onClick={() => (setMenu(null), window.open(TERMS_URL, '_blank', 'noopener'))}>
             Terms and privacy
           </MenuItem>
           <MenuDivider />

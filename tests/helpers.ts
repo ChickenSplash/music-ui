@@ -13,6 +13,22 @@ export async function ownIp(context: BrowserContext) {
 
 export const unique = () => Math.random().toString(36).slice(2, 10)
 
+/**
+ * Opens the app signed out, which sends you to the shared sign-in site (HMS, on :8091 in the
+ * dev stack), and picks a tab there.
+ */
+export async function openSignIn(page: Page, tab: 'Log in' | 'Register' | 'Join as guest', path = '/') {
+  await page.goto(path)
+  await expect(page.getByRole('heading', { name: 'Homelab accounts' })).toBeVisible()
+  await page.getByRole('navigation', { name: 'Sign in' }).getByRole('link', { name: tab }).click()
+}
+
+/** Back on the sign-in site, signed out. */
+export async function expectSignedOut(page: Page) {
+  await expect(page.getByRole('heading', { name: 'Homelab accounts' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Log in' })).toHaveAttribute('aria-current', 'page')
+}
+
 async function signedIn(page: Page): Promise<string> {
   await expect(page.getByTestId('me')).toBeVisible()
   return page.evaluate(async () => (await (await fetch('/api/auth/me', { headers: { Accept: 'application/json' } })).json()).id)
@@ -20,7 +36,7 @@ async function signedIn(page: Page): Promise<string> {
 
 /** Joins as a guest and returns their public ID. */
 export async function joinAsGuest(page: Page, name = 'Listener'): Promise<string> {
-  await page.goto('/')
+  await openSignIn(page, 'Join as guest')
   await page.getByLabel('Display name').fill(name)
   await page.getByRole('checkbox', { name: /agree to the terms/ }).check()
   await page.getByRole('button', { name: 'Join' }).click()
@@ -29,8 +45,7 @@ export async function joinAsGuest(page: Page, name = 'Listener'): Promise<string
 
 /** Registers an `e2e-*@example.com` account (delete them afterwards) and returns its public ID. */
 export async function register(page: Page, name = 'Creator'): Promise<string> {
-  await page.goto('/')
-  await page.getByRole('tab', { name: 'Register' }).click()
+  await openSignIn(page, 'Register')
   await page.getByLabel('Display name').fill(name)
   await page.getByLabel('Email').fill(`e2e-${unique()}@example.com`)
   await page.getByLabel('Password', { exact: true }).fill('password-1234')
@@ -102,7 +117,7 @@ export async function logOut(page: Page) {
   await page.getByRole('button', { name: 'Account' }).click()
   await page.getByRole('menuitem', { name: 'Log out' }).click()
   await confirmModal(page)
-  await expect(page.getByRole('tab', { name: 'Join as guest' })).toBeVisible()
+  await expectSignedOut(page)
 }
 
 /** Seconds into the current track, read off the audio element through the seek bar. */
