@@ -13,7 +13,7 @@ export function SidePanel({ panel, onClose }: { panel: Exclude<Panel, null>; onC
   const player = usePlayer()
 
   return (
-    <aside aria-label={panel === 'now' ? 'Now playing' : 'Queue'} className="scroll-panel hidden w-80 shrink-0 overflow-y-auto rounded-lg bg-panel lg:block">
+    <aside aria-label={panel === 'now' ? 'Now playing' : 'Queue'} className="scroll-panel h-full w-full overflow-y-auto rounded-lg bg-panel">
       <div className="sticky top-0 z-10 flex items-center justify-between bg-panel px-4 py-3">
         <h2 className="truncate font-bold text-white">{panel === 'now' ? (player.context?.label ?? 'Now playing') : 'Queue'}</h2>
         <button type="button" onClick={onClose} aria-label="Close panel" title="Close" className="rounded-full p-1.5 text-zinc-400 hover:bg-hover hover:text-white">

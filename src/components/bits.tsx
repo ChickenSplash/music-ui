@@ -37,7 +37,18 @@ export function PlayButton({
   )
 }
 
-export function LikeButton({ track, className = '', size = 'size-4' }: { track: Track; className?: string; size?: string }) {
+export function LikeButton({
+  track,
+  className = '',
+  size = 'size-4',
+  hideUntilHover = false,
+}: {
+  track: Track
+  className?: string
+  size?: string
+  /** In track lists: only liked ones show their heart until the row is hovered. */
+  hideUntilHover?: boolean
+}) {
   const liked = useLiked(track)
   const toggle = useToggleLike()
   const toast = useToast()
@@ -53,7 +64,9 @@ export function LikeButton({ track, className = '', size = 'size-4' }: { track: 
       aria-label={liked ? `Remove ${track.title} from Liked Songs` : `Save ${track.title} to Liked Songs`}
       aria-pressed={liked}
       title={liked ? 'Remove from Liked Songs' : 'Save to Liked Songs'}
-      className={`transition hover:scale-105 ${liked ? 'text-accent' : 'text-zinc-400 hover:text-white'} ${className}`}
+      className={`transition hover:scale-105 ${liked ? 'text-accent' : 'text-zinc-400 hover:text-white'} ${
+        hideUntilHover && !liked ? 'md:invisible md:group-hover:visible md:group-focus-within:visible' : ''
+      } ${className}`}
     >
       {liked ? <SolidIcon name="heart" className={size} /> : <Icon name="heart" className={size} />}
     </button>

@@ -96,6 +96,10 @@ const likeOverrides = new Map<number, boolean>()
 const likeListeners = new Set<() => void>()
 const emitLikes = () => likeListeners.forEach((listener) => listener())
 
+/**
+ * Whether a track is liked. Liked Songs is the source of truth: the player keeps the track it
+ * was given when playback started, so that copy's `liked` goes stale.
+ */
 export function useLiked(track: Pick<Track, 'id' | 'liked'>): boolean {
   const override = useSyncExternalStore(
     (listener) => {
@@ -104,7 +108,8 @@ export function useLiked(track: Pick<Track, 'id' | 'liked'>): boolean {
     },
     () => likeOverrides.get(track.id),
   )
-  return override ?? track.liked
+  const likes = useLikes()
+  return override ?? (likes.data ? likes.data.some((t) => t.id === track.id) : track.liked)
 }
 
 export function useToggleLike() {

@@ -182,10 +182,7 @@ export function TrackTable({
               )}
 
               <span role="cell" className="flex items-center justify-end gap-3 text-sm text-zinc-400 tabular-nums">
-                <LikeButton
-                  track={track}
-                  className={`hidden md:block ${track.liked ? '' : 'md:invisible md:group-hover:visible md:group-focus-within:visible'}`}
-                />
+                <LikeButton track={track} hideUntilHover className="hidden md:block" />
                 <span className="hidden w-10 text-right md:block">{duration(track.duration_ms)}</span>
                 <button
                   type="button"

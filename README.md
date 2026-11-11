@@ -9,6 +9,8 @@ Spotify, at `music.chickensplash.dpdns.org`. The back end is
 
 - React 19 + TypeScript, Vite, Tailwind CSS 4
 - TanStack Query for API data, React Router
+- Hearts read Liked Songs (`useLiked`), not the track object they were given: the player keeps
+  its own copy of each track, whose `liked` goes stale
 - One `<audio>` element for the whole app (`src/lib/player.tsx`), so playback carries on
   between pages
 
@@ -27,7 +29,10 @@ read-only at `/music`, the same folder HMS reads). So the container needs `MUSIC
 - **Welcome:** join as a guest, log in or register (the same accounts as chat)
 - **Layout:** top bar (home, search, Studio, account menu), Your Library on the left (Liked
   Songs, playlists, +), the page, an optional right panel (now playing with lyrics, or the
-  queue) and the player bar. Under 768 px: the page, a mini player, a full-screen player and
+  queue) and the player bar. Both sidebars resize by dragging their edge (or arrow keys on the
+  focused edge). The library snaps to a strip of covers when dragged narrow, and its heading,
+  a double-click or Enter on the edge toggles it. Widths are remembered; opening, closing and
+  snapping glide. Under 768 px: the page, a mini player, a full-screen player and
   Home / Search / Your Library tabs.
 - **Home** (`/`), **Search** (`/search?q=`; empty lists all songs), **Album** (`/album/:id`),
   **Creator** (`/creator/:id`), **Playlist** (`/playlist/:id`: rename, delete, drag rows to

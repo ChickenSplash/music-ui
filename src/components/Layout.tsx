@@ -10,7 +10,16 @@ import { Equaliser, Icon, type IconName } from './icons'
 import { Menu, MenuDivider, MenuItem, anchorOf, type MenuAnchor } from './Menu'
 import { FullPlayer, SidePanel } from './NowPlaying'
 import { MiniPlayer, PlayerBar, type Panel } from './Player'
+import { ResizeHandle, useStoredWidth } from './ResizeHandle'
 import { Settings } from './Settings'
+
+// Library widths. Dragged narrower than SNAP, it collapses to a strip of covers.
+const LIBRARY = { collapsed: 80, snap: 160, min: 220, max: 440, initial: 288 }
+const PANEL = { min: 280, max: 520, initial: 320 }
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+// Opening, closing and snapping all glide; while a handle is dragged the width follows the pointer.
+const GLIDE = 'transition-[width] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none'
 
 /**
  * Spotify's desktop layout: a top bar with search, the library on the left, the page in the
@@ -36,16 +45,81 @@ export function Layout({ user }: { user: User }) {
 
   const closeFullPlayer = useCallback(() => setFullPlayer(false), [])
 
+  // The library: its expanded width and whether it's collapsed are kept between visits.
+  const [libraryWidth, setLibraryWidth] = useStoredWidth('music.library-width', LIBRARY.initial)
+  const [collapsed, setCollapsedState] = useState(() => localStorage.getItem('music.library-collapsed') === '1')
+  const [libraryDrag, setLibraryDrag] = useState<number | null>(null)
+  const setCollapsed = (value: boolean) => {
+    setCollapsedState(value)
+    localStorage.setItem('music.library-collapsed', value ? '1' : '0')
+  }
+  const libraryShown = libraryDrag !== null ? clamp(libraryDrag, LIBRARY.collapsed, LIBRARY.max) : collapsed ? LIBRARY.collapsed : libraryWidth
+  const libraryCollapsed = libraryDrag !== null ? libraryDrag < LIBRARY.snap : collapsed
+
+  const resizeLibrary = (width: number, done: boolean) => {
+    if (!done) return setLibraryDrag(width)
+    setLibraryDrag(null)
+    if (width < LIBRARY.snap) setCollapsed(true)
+    else {
+      setCollapsed(false)
+      setLibraryWidth(clamp(width, LIBRARY.min, LIBRARY.max))
+    }
+  }
+
+  // The right panel stays mounted while it slides shut, showing what it showed last.
+  const [panelWidth, setPanelWidth] = useStoredWidth('music.panel-width', PANEL.initial)
+  const [panelDrag, setPanelDrag] = useState<number | null>(null)
+  const [lastPanel, setLastPanel] = useState<Exclude<Panel, null>>('now')
+  if (panel && panel !== lastPanel) setLastPanel(panel)
+  const panelShown = panelDrag !== null ? clamp(panelDrag, PANEL.min, PANEL.max) : panelWidth
+
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-shell pt-[env(safe-area-inset-top)] text-zinc-100">
       <TopBar user={user} onSettings={() => setSettings(true)} />
 
-      <div className="flex min-h-0 flex-1 gap-2 md:px-2">
-        <Library user={user} />
+      <div className={`flex min-h-0 flex-1 md:px-2 ${libraryDrag !== null || panelDrag !== null ? 'cursor-col-resize select-none' : ''}`}>
+        <div style={{ width: libraryShown }} className={`hidden shrink-0 md:flex ${libraryDrag === null ? GLIDE : ''}`}>
+          <Library user={user} collapsed={libraryCollapsed} onToggle={() => setCollapsed(!collapsed)} />
+        </div>
+        <ResizeHandle
+          label="Resize Your Library"
+          side="left"
+          width={libraryShown}
+          min={LIBRARY.collapsed}
+          max={LIBRARY.max}
+          onResize={resizeLibrary}
+          onDragging={(dragging) => !dragging && setLibraryDrag(null)}
+          onToggle={() => setCollapsed(!collapsed)}
+        />
         <main ref={main} id="main" className="scroll-panel relative min-w-0 flex-1 overflow-y-auto bg-panel md:rounded-lg">
           <Outlet />
         </main>
-        {panel && <SidePanel panel={panel} onClose={() => setPanel(null)} />}
+        <div
+          style={{ width: panel ? panelShown + 8 : 0 }}
+          inert={!panel}
+          className={`hidden shrink-0 overflow-hidden lg:flex ${panelDrag === null ? GLIDE : ''}`}
+        >
+          {panel && (
+            <ResizeHandle
+              label="Resize the side panel"
+              side="right"
+              width={panelShown}
+              min={PANEL.min}
+              max={PANEL.max}
+              onResize={(width, done) => {
+                if (!done) return setPanelDrag(width)
+                setPanelDrag(null)
+                setPanelWidth(clamp(width, PANEL.min, PANEL.max))
+              }}
+              onDragging={(dragging) => !dragging && setPanelDrag(null)}
+              onToggle={() => setPanel(null)}
+            />
+          )}
+          {/* Fixed width inside a sliding box, so the content doesn't reflow as it opens. */}
+          <div style={{ width: panelShown }} className={`shrink-0 ${panel ? '' : 'ml-2'}`}>
+            <SidePanel panel={panel ?? lastPanel} onClose={() => setPanel(null)} />
+          </div>
+        </div>
       </div>
 
       <PlayerBar panel={panel} setPanel={setPanel} />
@@ -165,34 +239,55 @@ function TopBar({ user, onSettings }: { user: User; onSettings: () => void }) {
   )
 }
 
-/** "Your Library": Liked Songs pinned on top, then your playlists, most recently changed first. */
-function Library({ user }: { user: User }) {
+/**
+ * "Your Library": Liked Songs pinned on top, then your playlists, most recently changed first.
+ * Collapsed, it's a strip of covers; the heading toggles it, like Spotify's.
+ */
+function Library({ user, collapsed, onToggle }: { user: User; collapsed: boolean; onToggle: () => void }) {
   const playlists = usePlaylists()
   const likes = useLikes()
   const create = useCreatePlaylist()
   const navigate = useNavigate()
 
+  const newPlaylist = (
+    <button
+      type="button"
+      onClick={() => create.mutate({}, { onSuccess: (playlist) => navigate(`/playlist/${playlist.id}`) })}
+      disabled={create.isPending}
+      aria-label="Create playlist"
+      title="Create playlist"
+      className="shrink-0 rounded-full p-2 text-zinc-400 transition hover:bg-hover hover:text-white"
+    >
+      <Icon name="plus" className="size-5" />
+    </button>
+  )
+
   return (
-    <nav aria-label="Your Library" className="hidden w-72 shrink-0 flex-col overflow-hidden rounded-lg bg-panel md:flex">
-      <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <h2 className="flex items-center gap-3 font-bold text-zinc-300">
-          <Icon name="library" className="size-6" />
-          Your Library
-        </h2>
+    <nav aria-label="Your Library" className="flex w-full min-w-0 flex-col overflow-hidden rounded-lg bg-panel">
+      <div className={`flex items-center pt-3 pb-2 ${collapsed ? 'flex-col gap-1 px-2' : 'justify-between gap-2 px-4'}`}>
         <button
           type="button"
-          onClick={() => create.mutate({}, { onSuccess: (playlist) => navigate(`/playlist/${playlist.id}`) })}
-          disabled={create.isPending}
-          aria-label="Create playlist"
-          title="Create playlist"
-          className="rounded-full p-2 text-zinc-400 transition hover:bg-hover hover:text-white"
+          onClick={onToggle}
+          aria-label={collapsed ? 'Expand Your Library' : 'Collapse Your Library'}
+          aria-expanded={!collapsed}
+          title={collapsed ? 'Expand Your Library' : 'Collapse Your Library'}
+          className={`flex min-w-0 items-center gap-3 font-bold text-zinc-400 transition hover:text-white ${collapsed ? 'rounded-full p-2' : ''}`}
         >
-          <Icon name="plus" className="size-5" />
+          <Icon name="library" className="size-6 shrink-0" />
+          {!collapsed && <span className="truncate">Your Library</span>}
         </button>
+        {newPlaylist}
       </div>
 
-      <ul className="scroll-panel flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
-        <LibraryItem to="/liked" title="Liked Songs" subtitle={`Playlist · ${plural(likes.data?.length ?? 0, 'song')}`} image={<LikedCover className="size-12" />} kind="liked" />
+      <ul className={`scroll-panel flex-1 space-y-0.5 overflow-x-hidden overflow-y-auto pb-2 ${collapsed ? 'px-1' : 'px-2'}`}>
+        <LibraryItem
+          to="/liked"
+          title="Liked Songs"
+          subtitle={`Playlist · ${plural(likes.data?.length ?? 0, 'song')}`}
+          image={<LikedCover className="size-12" />}
+          kind="liked"
+          collapsed={collapsed}
+        />
         {playlists.data?.map((playlist) => (
           <LibraryItem
             key={playlist.id}
@@ -202,11 +297,12 @@ function Library({ user }: { user: User }) {
             image={<Mosaic covers={playlist.covers} seed={`p${playlist.id}`} className="size-12" />}
             kind="playlist"
             id={playlist.id}
+            collapsed={collapsed}
           />
         ))}
       </ul>
 
-      {user.is_guest && (
+      {user.is_guest && !collapsed && (
         <p className="m-2 rounded-md bg-raised p-3 text-xs text-zinc-400">
           You're a guest: your playlists and liked songs are deleted when you log out. Register an account to keep them.
         </p>
@@ -222,6 +318,7 @@ function LibraryItem({
   image,
   kind,
   id,
+  collapsed,
 }: {
   to: string
   title: string
@@ -229,19 +326,33 @@ function LibraryItem({
   image: ReactNode
   kind: 'liked' | 'playlist'
   id?: number
+  collapsed: boolean
 }) {
   const player = usePlayer()
   const playingHere = player.playing && player.context?.kind === kind && String(player.context.id ?? '') === String(id ?? '')
 
   return (
     <li>
-      <NavLink to={to} className={({ isActive }) => `flex items-center gap-3 rounded-md p-2 transition ${isActive ? 'bg-hover' : 'hover:bg-white/5'}`}>
-        {image}
-        <span className="min-w-0 flex-1">
+      <NavLink
+        to={to}
+        title={collapsed ? title : undefined}
+        className={({ isActive }) =>
+          `flex items-center gap-3 rounded-md p-2 transition ${collapsed ? 'justify-center' : ''} ${isActive ? 'bg-hover' : 'hover:bg-white/5'}`
+        }
+      >
+        <span className="relative shrink-0">
+          {image}
+          {collapsed && playingHere && (
+            <span className="absolute inset-0 flex items-center justify-center rounded bg-black/50">
+              <Equaliser className="h-3 w-3" />
+            </span>
+          )}
+        </span>
+        <span className={collapsed ? 'sr-only' : 'min-w-0 flex-1'}>
           <span className={`block truncate ${playingHere ? 'text-accent' : 'text-white'}`}>{title}</span>
           <span className="block truncate text-sm text-zinc-400">{subtitle}</span>
         </span>
-        {playingHere && <Equaliser className="mr-2 h-3 w-3" />}
+        {playingHere && !collapsed && <Equaliser className="mr-2 h-3 w-3 shrink-0" />}
       </NavLink>
     </li>
   )
