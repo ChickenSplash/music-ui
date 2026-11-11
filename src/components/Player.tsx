@@ -31,7 +31,14 @@ export function Progress({ compact = false }: { compact?: boolean }) {
     />
   )
 
-  if (compact) return slider
+  // The mini player's is just a thin line along its bottom edge, as on Spotify: seeking is in the full player.
+  if (compact) {
+    return (
+      <div aria-hidden className="mx-2 h-0.5 overflow-hidden rounded-full bg-white/20">
+        <div style={{ width: `${value}%` }} className="h-full rounded-full bg-white" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex w-full items-center gap-2 text-xs text-zinc-400 tabular-nums">
@@ -186,7 +193,7 @@ export function PlayerBar({ panel, setPanel }: { panel: Panel; setPanel: (panel:
       </div>
 
       <div className="flex items-center justify-end gap-3">
-        <PanelButton icon="mic" label="Now playing and lyrics" active={panel === 'now'} onClick={() => setPanel(panel === 'now' ? null : 'now')} />
+        <PanelButton icon="note" label="Now playing and lyrics" active={panel === 'now'} onClick={() => setPanel(panel === 'now' ? null : 'now')} />
         <PanelButton icon="queue" label="Queue" active={panel === 'queue'} onClick={() => setPanel(panel === 'queue' ? null : 'queue')} />
         <Volume />
       </div>
@@ -194,7 +201,7 @@ export function PlayerBar({ panel, setPanel }: { panel: Panel; setPanel: (panel:
   )
 }
 
-function PanelButton({ icon, label, active, onClick }: { icon: 'mic' | 'queue'; label: string; active: boolean; onClick: () => void }) {
+function PanelButton({ icon, label, active, onClick }: { icon: 'note' | 'queue'; label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"

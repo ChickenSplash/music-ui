@@ -83,6 +83,16 @@
   opacity: 1;
 }
 
+/* Touch screens have no hover, so the seek handle always shows there. */
+@media (pointer: coarse) {
+  .slider::-webkit-slider-thumb {
+    opacity: 1;
+  }
+  .slider::-moz-range-thumb {
+    opacity: 1;
+  }
+}
+
 /* The bars beside whatever is playing. */
 @keyframes eq {
   0%,
