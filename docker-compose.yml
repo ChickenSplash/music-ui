@@ -1,0 +1,17 @@
+services:
+  music-ui:
+    build: .
+    container_name: music-ui
+    hostname: music-ui
+    volumes:
+      # Same folder HMS reads (its MUSIC_PATH), served by nginx once HMS has said yes.
+      - '${MUSIC_PATH:-/srv/files/Music}:/music:ro'
+    networks: [edge]
+    restart: unless-stopped
+
+networks:
+  # Created by the cloudflared stack. Point the tunnel's public hostname at
+  # http://music-ui:80; this nginx forwards the API to HMS.
+  edge:
+    name: edge
+    external: true
